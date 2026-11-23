@@ -54,8 +54,10 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
   } catch (e) { app.innerHTML = '<div class="msg ruim">Não foi possível falar com o servidor de contas.</div>'; return; }
   if (!N.perfil || !N.perfil.admin) { app.innerHTML = '<div class="msg ruim">Acesso restrito ao administrador. <a href="index.html">Voltar ao início</a></div>'; return; }
 
-  let perfis = [], partidas = [], sugestoes = [], aba = "usuarios", filtro = { jogo: "", status: "", busca: "" };
-  async function ler() { [perfis, partidas, sugestoes] = await Promise.all([N.api.adminPerfis(), N.api.adminPartidas(), N.api.adminSugestoes()]); }
+  let perfis = [], partidas = [], sugestoes = [], ficticios = [], aba = "desempenho", filtro = { jogo: "", status: "", busca: "" };
+  // jogadores fictícios do ranking (tabela ranking_ficticio, só o admin lê; sem a migração 03 a lista fica vazia)
+  async function lerFicticios() { try { const r = await N.api.sb.from("ranking_ficticio").select("semente,papel,apelido,resultado"); return r.error ? [] : r.data || []; } catch (e) { return []; } }
+  async function ler() { [perfis, partidas, sugestoes, ficticios] = await Promise.all([N.api.adminPerfis(), N.api.adminPartidas(), N.api.adminSugestoes(), lerFicticios()]); }
   try { await ler(); } catch (e) { app.innerHTML = '<div class="msg ruim">Erro ao ler os dados: ' + esc(e.message) + "</div>"; return; }
   const porId = () => Object.fromEntries(perfis.map((p) => [p.id, p]));
 
@@ -66,8 +68,12 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
       '<div class="cartao"><b>' + partidas.length + '</b><span>partidas salvas</span></div><div class="cartao"><b>' + partidas.filter((p) => p.concluida).length + '</b><span>partidas concluídas</span></div>' +
       '<div class="cartao"><b>' + sugestoes.filter((s) => s.status === "nova").length + '</b><span>sugestões novas (de ' + sugestoes.length + ")</span></div></div>";
     const ab = (k, t) => '<button data-aba="' + k + '" aria-selected="' + (aba === k) + '">' + t + "</button>";
-    h += '<div class="abas">' + ab("usuarios", "Usuários") + ab("partidas", "Progresso") + ab("sugestoes", "Sugestões") + ab("ranking", "Ranking") + "</div>";
-    if (aba === "usuarios") {
+    h += '<div class="abas">' + ab("desempenho", "Desempenho") + ab("usuarios", "Usuários") + ab("partidas", "Progresso") + ab("sugestoes", "Sugestões") + ab("ranking", "Ranking") + "</div>";
+    if (aba === "desempenho") {
+      h += '<p class="muted">Só jogadores reais (os fictícios do ranking não entram). "Jogo completo" = partida de 12 meses; missões contadas à parte. Resultado = patrimônio final − inicial.</p>' +
+        '<div class="filtros"><button class="bt contorno peq" data-csv="desempenho">Exportar CSV (os dois jogos)</button></div>' +
+        desempenho("COMERCIALIZADORA", 8) + desempenho("GERADOR", 14);
+    } else if (aba === "usuarios") {
       const cont = {}; partidas.forEach((p) => { const c = (cont[p.usuario] = cont[p.usuario] || { n: 0, f: 0 }); c.n++; if (p.concluida) c.f++; });
       const b = filtro.busca.toLowerCase(), lista = perfis.filter((p) => !b || [p.nome, p.apelido, p.email].join(" ").toLowerCase().includes(b));
       h += '<div class="filtros"><label class="campo">Buscar<input data-f="busca" value="' + esc(filtro.busca) + '" placeholder="nome, apelido ou e-mail"></label><button class="bt contorno peq" data-csv="usuarios">Exportar CSV</button></div>' +
@@ -87,11 +93,16 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
         (lista.length ? "" : '<tr><td colspan="6" class="muted">Nenhuma sugestão com esse filtro.</td></tr>') + "</tbody></table></div>";
     } else {
       // ranking: calculado das partidas (o admin vê todas), melhor partida completa por jogador
+      // fictícios aparecem em cinza com a marca "fictício" (os jogadores veem todos iguais)
       const g = {};
-      partidas.filter((p) => p.concluida && !p.missao && p.resultado != null).forEach((p) => { const k = p.papel + "|" + p.semente, m = (g[k] = g[k] || {}); if (!m[p.usuario] || p.resultado > m[p.usuario].resultado) m[p.usuario] = p; });
-      const ks = Object.keys(g).sort((a, b) => Object.keys(g[b]).length - Object.keys(g[a]).length);
-      h += ks.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">' + ks.map((k) => { const [papel, sem] = k.split("|"), l = Object.values(g[k]).sort((a, b) => b.resultado - a.resultado);
-        return '<div class="cartao"><h3 style="font-size:16px;margin-bottom:8px">' + papelTxt(papel) + " · cenário " + esc(sem) + " (" + l.length + ' jogadores)</h3><table><tbody>' + l.map((p, i) => "<tr><td>" + (i + 1) + "</td><td>" + esc((P[p.usuario] || {}).apelido) + '</td><td class="d num">' + rs(p.resultado) + "</td></tr>").join("") + "</tbody></table></div>"; }).join("") + "</div>"
+      partidas.filter((p) => p.concluida && !p.missao && p.resultado != null && (P[p.usuario] || {}).ativo !== false).forEach((p) => { const k = p.papel + "|" + p.semente, m = (g[k] = g[k] || {}); if (!m[p.usuario] || p.resultado > m[p.usuario].resultado) m[p.usuario] = p; });
+      const lin = {}; Object.entries(g).forEach(([k, m]) => { lin[k] = Object.values(m).map((p) => ({ apelido: (P[p.usuario] || {}).apelido, resultado: p.resultado, fic: false })); });
+      ficticios.forEach((f) => { const k = f.papel + "|" + f.semente; (lin[k] = lin[k] || []).push({ apelido: f.apelido, resultado: Number(f.resultado), fic: true }); });
+      const ks = Object.keys(lin).sort((a, b) => lin[b].length - lin[a].length);
+      h += '<p class="muted">' + (ficticios.length ? ficticios.length + " jogadores fictícios em " + new Set(ficticios.map((f) => f.papel + f.semente)).size + " cenários (10 por cenário, criados quando a 1ª partida completa do cenário é concluída). Só você vê a marca." : "Sem jogadores fictícios: rode a supabase\\migracao_03_ficticios.sql no SQL Editor.") + "</p>";
+      h += ks.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">' + ks.map((k) => { const [papel, sem] = k.split("|"), l = lin[k].sort((a, b) => b.resultado - a.resultado), reais = l.filter((x) => !x.fic).length;
+        return '<div class="cartao"><h3 style="font-size:16px;margin-bottom:8px">' + papelTxt(papel) + " · cenário " + esc(sem) + " (" + reais + " reais + " + (l.length - reais) + ' fictícios)</h3><table><tbody>' +
+          l.map((x, i) => "<tr" + (x.fic ? ' style="color:var(--ink2)"' : "") + "><td>" + (i + 1) + "</td><td>" + esc(x.apelido) + (x.fic ? ' <span class="st lida">fictício</span>' : "") + '</td><td class="d num">' + rs(x.resultado) + "</td></tr>").join("") + "</tbody></table></div>"; }).join("") + "</div>"
         : '<div class="cartao muted">Ainda não há partidas completas concluídas.</div>';
     }
     app.innerHTML = h;
@@ -102,6 +113,38 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
     if (p.id === N.usuario.id) return '<span class="st feita">ativa</span>';
     return '<span class="st ' + (ativo ? "feita" : "nova") + '">' + (ativo ? "ativa" : "desativada") + "</span>" + (!ativo && p.desativado_em ? '<br><span class="ctx">' + data(p.desativado_em) + "</span>" : "") +
       '<br><button class="bt contorno peq" style="margin-top:6px" data-ativo="' + p.id + '" data-v="' + (ativo ? "0" : "1") + '">' + (ativo ? "Desativar" : "Reativar") + "</button>";
+  }
+  // desempenho por jogador num dos jogos (COMERCIALIZADORA ou GERADOR); nMissoes = missões que o jogo tem
+  function linhasDesempenho(papel) {
+    const P = porId(), por = {};
+    partidas.filter((p) => p.papel === papel).forEach((p) => { (por[p.usuario] = por[p.usuario] || []).push(p); });
+    return Object.entries(por).map(([u, l]) => {
+      const comp = l.filter((p) => !p.missao), conc = comp.filter((p) => p.concluida && p.resultado != null), res = conc.map((p) => Number(p.resultado));
+      const andam = comp.filter((p) => !p.concluida), mis = [...new Set(l.filter((p) => p.missao && p.concluida).map((p) => p.missao))].sort((a, b) => a - b);
+      const ult = conc.slice().sort((a, b) => new Date(b.atualizado) - new Date(a.atualizado))[0];
+      const prog = andam.length ? andam.reduce((m, p) => Math.max(m, (p.mes || 0) + 1), 0) : null;
+      return { perfil: P[u] || {}, iniciadas: comp.length, concluidas: conc.length, melhor: res.length ? Math.max(...res) : null, media: res.length ? res.reduce((a, x) => a + x, 0) / res.length : null,
+        ultimo: ult ? Number(ult.resultado) : null, cenarios: new Set(comp.map((p) => p.semente)).size, missoes: mis, andamento: prog, meses: andam.length ? andam[0].meses : null,
+        jogada: l.reduce((m, p) => (new Date(p.atualizado) > m ? new Date(p.atualizado) : m), new Date(0)) };
+    }).sort((a, b) => (b.melhor == null ? -Infinity : b.melhor) - (a.melhor == null ? -Infinity : a.melhor) || b.jogada - a.jogada);
+  }
+  function desempenho(papel, nMissoes) {
+    const L = linhasDesempenho(papel), conc = partidas.filter((p) => p.papel === papel && !p.missao && p.concluida && p.resultado != null).map((p) => Number(p.resultado)).sort((a, b) => a - b);
+    const ini = partidas.filter((p) => p.papel === papel && !p.missao).length, mis = partidas.filter((p) => p.papel === papel && p.missao && p.concluida).length;
+    const med = conc.length ? conc.reduce((a, x) => a + x, 0) / conc.length : null, mediana = conc.length ? (conc.length % 2 ? conc[(conc.length - 1) / 2] : (conc[conc.length / 2 - 1] + conc[conc.length / 2]) / 2) : null;
+    const pct = (a, b) => (b ? Math.round((100 * a) / b) + "%" : "—");
+    const k = (v, t) => '<div class="cartao"><b>' + v + "</b><span>" + t + "</span></div>";
+    let h = '<h2 style="font-size:22px;margin:28px 0 4px">' + (papel === "GERADOR" ? "Jogo do Gerador" : "Jogo da Comercializadora") + "</h2>" +
+      '<div class="kpis">' + k(L.length, "jogadores") + k(ini, "jogos completos iniciados") + k(conc.length + ' <small style="font-size:14px">(' + pct(conc.length, ini) + ")</small>", "jogos completos concluídos") +
+      k(rs(med), "resultado médio (concluídos)") + k(rs(mediana), "resultado mediano") + k(pct(conc.filter((x) => x > 0).length, conc.length), "terminaram com lucro") +
+      k(conc.length ? rs(conc[conc.length - 1]) : "—", "melhor resultado") + k(mis, "missões terminadas (de " + nMissoes + " por jogador)") + "</div>";
+    if (!L.length) return h + '<div class="cartao muted">Ninguém jogou este jogo ainda.</div>';
+    h += '<div class="cartao rol"><table><thead><tr><th>#</th><th>Apelido</th><th>Nome</th><th class="d">Completos<br>concl./inic.</th><th class="d">Melhor</th><th class="d">Médio</th><th class="d">Último</th><th class="d">Cenários</th><th>Missões terminadas</th><th>Em andamento</th><th>Última jogada</th></tr></thead><tbody>' +
+      L.map((x, i) => '<tr><td class="num">' + (i + 1) + "</td><td>" + esc(x.perfil.apelido || "?") + (x.perfil.ativo === false ? ' <span class="st nova">desativada</span>' : "") + "</td><td>" + esc(x.perfil.nome || "") +
+        '</td><td class="d num">' + x.concluidas + " / " + x.iniciadas + '</td><td class="d num">' + rs(x.melhor) + '</td><td class="d num">' + rs(x.media) + '</td><td class="d num">' + rs(x.ultimo) + '</td><td class="d num">' + x.cenarios +
+        "</td><td>" + x.missoes.length + " de " + nMissoes + (x.missoes.length ? '<br><span class="ctx">' + x.missoes.join(", ") + "</span>" : "") + "</td><td>" + (x.andamento ? "mês " + x.andamento + (x.meses ? " de " + x.meses : "") : "—") +
+        '</td><td class="num">' + data(x.jogada) + "</td></tr>").join("") + "</tbody></table></div>";
+    return h;
   }
   function selJogo(entrada) {
     const ops = [["", "todos"], ["COMERCIALIZADORA", "Comercializadora"], ["GERADOR", "Gerador"]].concat(entrada ? [["ENTRADA", "Página de entrada"]] : []);
@@ -116,15 +159,15 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
   app.addEventListener("click", (ev) => {
     const at = ev.target.closest("[data-ativo]");
     if (at) { const p = perfis.find((x) => x.id === at.dataset.ativo), ativar = at.dataset.v === "1";
-      if (!p || !confirm((ativar ? "Reativar" : "Desativar") + " a conta de " + p.nome + " (" + p.email + ")?" + (ativar ? "" : "
-
-A pessoa não consegue mais entrar, salvar partidas nem enviar sugestões, e sai do ranking. Dá para reativar depois."))) return;
+      if (!p || !confirm((ativar ? "Reativar" : "Desativar") + " a conta de " + p.nome + " (" + p.email + ")?" + (ativar ? "" : "\n\nA pessoa não consegue mais entrar, salvar partidas nem enviar sugestões, e sai do ranking. Dá para reativar depois."))) return;
       at.disabled = true;
       N.api.adminAtivo(p.id, ativar).then(async () => { perfis = await N.api.adminPerfis(); desenhar(); }, (e) => { alert("Não foi possível: " + e.message); at.disabled = false; });
       return; }
     const t = ev.target.closest("[data-aba],[data-csv]"); if (!t) return;
     if (t.dataset.aba) { aba = t.dataset.aba; filtro.jogo = ""; desenhar(); return; }
     const P = porId();
+    if (t.dataset.csv === "desempenho") { const lin = []; [["COMERCIALIZADORA", 8], ["GERADOR", 14]].forEach(([pp, nm]) => linhasDesempenho(pp).forEach((x) => lin.push([papelTxt(pp), x.perfil.apelido, x.perfil.nome, x.perfil.email, x.iniciadas, x.concluidas, x.melhor, x.media, x.ultimo, x.cenarios, x.missoes.length + "/" + nm, x.missoes.join(","), x.andamento, x.jogada.toISOString()])));
+      csv("desempenho", ["jogo", "apelido", "nome", "email", "completos_iniciados", "completos_concluidos", "melhor", "medio", "ultimo", "cenarios", "missoes_terminadas", "missoes", "mes_em_andamento", "ultima_jogada"], lin); }
     if (t.dataset.csv === "usuarios") csv("usuarios", ["nome", "apelido", "email", "cadastro", "ultimo_acesso", "admin", "ativo"], perfis.map((p) => [p.nome, p.apelido, p.email, p.criado_em, p.ultimo_acesso, p.admin, p.ativo !== false]));
     if (t.dataset.csv === "partidas") csv("partidas", ["apelido", "email", "jogo", "partida", "cenario", "missao", "mes", "meses", "concluida", "resultado", "atualizado"], partidas.map((p) => [(P[p.usuario] || {}).apelido, (P[p.usuario] || {}).email, p.papel, p.nome, p.semente, p.missao, p.mes, p.meses, p.concluida, p.resultado, p.atualizado]));
     if (t.dataset.csv === "sugestoes") csv("sugestoes", ["data", "apelido", "email", "jogo", "status", "texto", "contexto"], sugestoes.map((s) => [s.criado_em, (P[s.usuario] || {}).apelido, (P[s.usuario] || {}).email, s.jogo, s.status, s.texto, s.contexto]));
