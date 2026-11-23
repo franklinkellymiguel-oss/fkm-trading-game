@@ -62,7 +62,7 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
   function desenhar() {
     const P = porId(), ativos7 = perfis.filter((p) => p.ultimo_acesso && Date.now() - new Date(p.ultimo_acesso) < 7 * 864e5).length;
     let h = '<h1>Painel do administrador</h1><p class="muted">Dados lidos agora do Supabase. Nome e e-mail dos jogadores só aparecem aqui.</p>' +
-      '<div class="kpis"><div class="cartao"><b>' + perfis.length + '</b><span>usuários cadastrados</span></div><div class="cartao"><b>' + ativos7 + '</b><span>acessaram nos últimos 7 dias</span></div>' +
+      '<div class="kpis"><div class="cartao"><b>' + perfis.length + '</b><span>usuários cadastrados (' + perfis.filter((p) => p.ativo === false).length + ' desativados)</span></div><div class="cartao"><b>' + ativos7 + '</b><span>acessaram nos últimos 7 dias</span></div>' +
       '<div class="cartao"><b>' + partidas.length + '</b><span>partidas salvas</span></div><div class="cartao"><b>' + partidas.filter((p) => p.concluida).length + '</b><span>partidas concluídas</span></div>' +
       '<div class="cartao"><b>' + sugestoes.filter((s) => s.status === "nova").length + '</b><span>sugestões novas (de ' + sugestoes.length + ")</span></div></div>";
     const ab = (k, t) => '<button data-aba="' + k + '" aria-selected="' + (aba === k) + '">' + t + "</button>";
@@ -71,8 +71,8 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
       const cont = {}; partidas.forEach((p) => { const c = (cont[p.usuario] = cont[p.usuario] || { n: 0, f: 0 }); c.n++; if (p.concluida) c.f++; });
       const b = filtro.busca.toLowerCase(), lista = perfis.filter((p) => !b || [p.nome, p.apelido, p.email].join(" ").toLowerCase().includes(b));
       h += '<div class="filtros"><label class="campo">Buscar<input data-f="busca" value="' + esc(filtro.busca) + '" placeholder="nome, apelido ou e-mail"></label><button class="bt contorno peq" data-csv="usuarios">Exportar CSV</button></div>' +
-        '<div class="cartao rol"><table><thead><tr><th>Nome</th><th>Apelido</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th class="d">Partidas</th><th class="d">Concluídas</th><th>Admin</th></tr></thead><tbody>' +
-        lista.map((p) => { const c = cont[p.id] || { n: 0, f: 0 }; return "<tr><td>" + esc(p.nome) + "</td><td>" + esc(p.apelido) + "</td><td>" + esc(p.email) + '</td><td class="num">' + data(p.criado_em) + '</td><td class="num">' + data(p.ultimo_acesso) + '</td><td class="d num">' + c.n + '</td><td class="d num">' + c.f + "</td><td>" + (p.admin ? "sim" : "") + "</td></tr>"; }).join("") + "</tbody></table></div>";
+        '<div class="cartao rol"><table><thead><tr><th>Nome</th><th>Apelido</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th class="d">Partidas</th><th class="d">Concluídas</th><th>Admin</th><th>Situação</th></tr></thead><tbody>' +
+        lista.map((p) => { const c = cont[p.id] || { n: 0, f: 0 }; return "<tr><td>" + esc(p.nome) + "</td><td>" + esc(p.apelido) + "</td><td>" + esc(p.email) + '</td><td class="num">' + data(p.criado_em) + '</td><td class="num">' + data(p.ultimo_acesso) + '</td><td class="d num">' + c.n + '</td><td class="d num">' + c.f + "</td><td>" + (p.admin ? "sim" : "") + "</td><td>" + situacao(p) + "</td></tr>"; }).join("") + "</tbody></table></div>";
     } else if (aba === "partidas") {
       const lista = partidas.filter((p) => !filtro.jogo || p.papel === filtro.jogo);
       h += '<div class="filtros">' + selJogo() + '<button class="bt contorno peq" data-csv="partidas">Exportar CSV</button></div><div class="cartao rol"><table><thead><tr><th>Jogador</th><th>Jogo</th><th>Partida</th><th>Cenário</th><th>Tipo</th><th class="d">Mês</th><th>Situação</th><th class="d">Resultado</th><th>Atualizada</th></tr></thead><tbody>' +
@@ -96,6 +96,13 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
     }
     app.innerHTML = h;
   }
+  // desativar / reativar conta (ex.: e-mail inválido). O banco impede o admin de desativar a si mesmo.
+  function situacao(p) {
+    const ativo = p.ativo !== false;
+    if (p.id === N.usuario.id) return '<span class="st feita">ativa</span>';
+    return '<span class="st ' + (ativo ? "feita" : "nova") + '">' + (ativo ? "ativa" : "desativada") + "</span>" + (!ativo && p.desativado_em ? '<br><span class="ctx">' + data(p.desativado_em) + "</span>" : "") +
+      '<br><button class="bt contorno peq" style="margin-top:6px" data-ativo="' + p.id + '" data-v="' + (ativo ? "0" : "1") + '">' + (ativo ? "Desativar" : "Reativar") + "</button>";
+  }
   function selJogo(entrada) {
     const ops = [["", "todos"], ["COMERCIALIZADORA", "Comercializadora"], ["GERADOR", "Gerador"]].concat(entrada ? [["ENTRADA", "Página de entrada"]] : []);
     return '<label class="campo">Jogo<select data-f="jogo">' + ops.map(([v, t]) => '<option value="' + v + '"' + (filtro.jogo === v ? " selected" : "") + ">" + t + "</option>").join("") + "</select></label>";
@@ -107,10 +114,18 @@ tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/csv;charset=utf-8" })); a.download = nome + "_" + new Date().toISOString().slice(0, 10) + ".csv"; a.click();
   }
   app.addEventListener("click", (ev) => {
+    const at = ev.target.closest("[data-ativo]");
+    if (at) { const p = perfis.find((x) => x.id === at.dataset.ativo), ativar = at.dataset.v === "1";
+      if (!p || !confirm((ativar ? "Reativar" : "Desativar") + " a conta de " + p.nome + " (" + p.email + ")?" + (ativar ? "" : "
+
+A pessoa não consegue mais entrar, salvar partidas nem enviar sugestões, e sai do ranking. Dá para reativar depois."))) return;
+      at.disabled = true;
+      N.api.adminAtivo(p.id, ativar).then(async () => { perfis = await N.api.adminPerfis(); desenhar(); }, (e) => { alert("Não foi possível: " + e.message); at.disabled = false; });
+      return; }
     const t = ev.target.closest("[data-aba],[data-csv]"); if (!t) return;
     if (t.dataset.aba) { aba = t.dataset.aba; filtro.jogo = ""; desenhar(); return; }
     const P = porId();
-    if (t.dataset.csv === "usuarios") csv("usuarios", ["nome", "apelido", "email", "cadastro", "ultimo_acesso", "admin"], perfis.map((p) => [p.nome, p.apelido, p.email, p.criado_em, p.ultimo_acesso, p.admin]));
+    if (t.dataset.csv === "usuarios") csv("usuarios", ["nome", "apelido", "email", "cadastro", "ultimo_acesso", "admin", "ativo"], perfis.map((p) => [p.nome, p.apelido, p.email, p.criado_em, p.ultimo_acesso, p.admin, p.ativo !== false]));
     if (t.dataset.csv === "partidas") csv("partidas", ["apelido", "email", "jogo", "partida", "cenario", "missao", "mes", "meses", "concluida", "resultado", "atualizado"], partidas.map((p) => [(P[p.usuario] || {}).apelido, (P[p.usuario] || {}).email, p.papel, p.nome, p.semente, p.missao, p.mes, p.meses, p.concluida, p.resultado, p.atualizado]));
     if (t.dataset.csv === "sugestoes") csv("sugestoes", ["data", "apelido", "email", "jogo", "status", "texto", "contexto"], sugestoes.map((s) => [s.criado_em, (P[s.usuario] || {}).apelido, (P[s.usuario] || {}).email, s.jogo, s.status, s.texto, s.contexto]));
   });

@@ -262,7 +262,8 @@ dialog::backdrop { background: rgba(7, 16, 42, .55); }
       '<div class="duas"><label class="campo">Apelido no ranking<input name="apelido" maxlength="20" required></label><label class="campo">E-mail<input type="email" name="email" autocomplete="email" required></label></div>' +
       '<div class="duas"><label class="campo">Senha (mínimo 8 caracteres)<input type="password" name="senha" autocomplete="new-password" required minlength="8"></label><label class="campo">Repita a senha<input type="password" name="senha2" autocomplete="new-password" required></label></div>' +
       '<label class="check"><input type="checkbox" name="termos"> <span>Li e aceito os <a href="termos.html" target="_blank">Termos de Uso</a>, inclusive a proibição de copiar ou redistribuir o jogo.</span></label>' +
-      '<button class="bt ouro">Criar conta</button><p class="muted" style="font-size:13px">Enviaremos um e-mail para confirmar o endereço. O apelido aparece no ranking; o nome e o e-mail, não.</p></form>';
+      '<div class="msg" style="font-size:13px"><b>Use um e-mail verdadeiro e seu.</b> Contas com e-mail inválido, inexistente ou de outra pessoa serão desativadas, com a perda das partidas e do lugar no ranking.</div>' +
+      '<button class="bt ouro">Criar conta</button><p class="muted" style="font-size:13px">O apelido aparece no ranking; o nome e o e-mail, não.</p></form>';
     else if (modo === "esqueci") h += '<form class="form" data-f="esqueci"><label class="campo">E-mail da conta<input type="email" name="email" autocomplete="email" required></label><button class="bt ouro">Enviar link para nova senha</button><button type="button" class="bt contorno peq" data-c="entrar">Voltar</button></form>';
     else h += '<form class="form" data-f="entrar"><label class="campo">E-mail<input type="email" name="email" autocomplete="email" required></label><label class="campo">Senha<input type="password" name="senha" autocomplete="current-password" required></label>' +
       '<button class="bt ouro">Entrar</button><button type="button" class="bt contorno peq" data-c="esqueci">Esqueci a senha</button></form>';
@@ -276,7 +277,10 @@ dialog::backdrop { background: rgba(7, 16, 42, .55); }
   $("cxConta").addEventListener("submit", async (ev) => {
     ev.preventDefault(); const f = ev.target, d = Object.fromEntries(new FormData(f)), bt = f.querySelector("button"); bt.disabled = true;
     let r;
-    if (f.dataset.f === "criar") { d.termos = !!d.termos; r = await N.cadastrar(d); desenharConta(r.ok ? "entrar" : "criar", r); }
+    if (f.dataset.f === "criar") { d.termos = !!d.termos; r = await N.cadastrar(d);
+      if (r.ok && r.entrou && volta && /^(comercializador|gerador)\.html$/.test(volta)) { location.href = volta; return; }
+      if (!r.ok) { desenharConta("criar", r); const g = f.closest("#cxConta").querySelector('form[data-f="criar"]'); if (g) for (const [k, v] of Object.entries(d)) { const el = g.elements[k]; if (el && el.type !== "password" && el.type !== "checkbox") el.value = v; } }
+      else { desenharConta("entrar", r); if (r.entrou) carregarRanking(); } }
     else if (f.dataset.f === "entrar") { r = await N.entrar(d.email, d.senha); if (r.ok && volta && /^(comercializador|gerador|admin)\.html$/.test(volta)) { location.href = volta; return; } desenharConta("entrar", r); if (r.ok) carregarRanking(); }
     else if (f.dataset.f === "esqueci") { r = await N.recuperar(d.email); desenharConta("esqueci", r); }
     else if (f.dataset.f === "nova-senha") { r = await N.novaSenha(d.senha); history.replaceState(null, "", "index.html"); desenharConta("entrar", r); }
