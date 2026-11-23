@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FKM Trading Game · Jogos do mercado de energia</title>
+<meta name="description" content="Jogos de simulação do mercado de energia elétrica brasileiro, com regras da CCEE e dados reais de 2021 a 2026. Uma iniciativa da FKM Energy Strategy.">
+<link rel="icon" href="img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="ui/fkm.css">
+<style>
+/* hero: azul-marinho com os arcos dourados da marca FKM e a curva real do PLD */
+.hero { position: relative; overflow: hidden; color: #fff; background: radial-gradient(1200px 600px at 85% 20%, #22407f 0%, transparent 60%), linear-gradient(160deg, #0a1430 0%, var(--navy) 45%, var(--navy2) 100%); }
+.hero::before { content: ""; position: absolute; inset: 0; background: url("img/usina-solar.jpg") center/cover; opacity: .12; mix-blend-mode: luminosity; }
+.hero .arco { position: absolute; border-radius: 50%; border: 1.5px solid rgba(217, 169, 78, .55); pointer-events: none; }
+.hero .a1 { width: 1100px; height: 1100px; right: -520px; top: -380px; }
+.hero .a2 { width: 860px; height: 860px; right: -420px; top: -260px; border-color: rgba(255, 255, 255, .18); }
+.hero .limite { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; padding-top: 72px; padding-bottom: 88px; }
+.selo { display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--text); letter-spacing: .12em; text-transform: uppercase; color: var(--gold3); background: rgba(217, 169, 78, .12); border: 1px solid rgba(217, 169, 78, .35); padding: 6px 12px; border-radius: 999px; }
+.selo i { width: 7px; height: 7px; border-radius: 50%; background: #39d98a; box-shadow: 0 0 0 0 rgba(57, 217, 138, .6); animation: pulso 2s infinite; }
+@keyframes pulso { 70% { box-shadow: 0 0 0 9px rgba(57, 217, 138, 0); } 100% { box-shadow: 0 0 0 0 rgba(57, 217, 138, 0); } }
+.hero h1 { font-size: clamp(36px, 5vw, 60px); font-weight: 800; margin: 20px 0 18px; }
+.hero h1 span { background: linear-gradient(90deg, var(--gold3), var(--gold2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p.sub { font-size: 19px; color: rgba(255, 255, 255, .82); max-width: 560px; }
+.hero .acoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.numeros { display: grid; grid-template-columns: repeat(3, auto); gap: 10px 34px; margin-top: 40px; justify-content: start; }
+.numeros b { display: block; font: 700 28px var(--display); color: #fff; }
+.numeros span { font-size: 13px; color: rgba(255, 255, 255, .65); }
+/* painel do gráfico */
+.tela { background: rgba(10, 20, 48, .72); border: 1px solid rgba(255, 255, 255, .14); border-radius: 18px; padding: 20px 20px 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); backdrop-filter: blur(6px); }
+.tela .topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tela .topo b { font: 600 13px var(--text); color: rgba(255, 255, 255, .75); letter-spacing: .04em; }
+.tela .preco { font: 600 30px var(--mono); color: #fff; }
+.tela .var { font: 600 13px var(--mono); padding: 3px 8px; border-radius: 6px; }
+.tela .var.sobe { color: #ff9d8a; background: rgba(255, 99, 71, .15); } .tela .var.desce { color: #6fe3a6; background: rgba(57, 217, 138, .15); }
+.tela svg { width: 100%; height: auto; margin-top: 8px; overflow: visible; }
+.tela .linha { fill: none; stroke: url(#gradLinha); stroke-width: 2.6; stroke-linejoin: round; stroke-dasharray: var(--L); stroke-dashoffset: var(--L); animation: traca 3.6s ease-out .3s forwards; }
+@keyframes traca { to { stroke-dashoffset: 0; } }
+.tela .area { fill: url(#gradArea); opacity: 0; animation: surge 1.2s ease-out 2.4s forwards; }
+@keyframes surge { to { opacity: 1; } }
+.tela .eixo { font: 500 10px var(--mono); fill: rgba(255, 255, 255, .45); }
+.tela .grade line { stroke: rgba(255, 255, 255, .08); }
+.tela .rodape-g { display: flex; justify-content: space-between; font-size: 11.5px; color: rgba(255, 255, 255, .55); margin-top: 6px; }
+/* fita de cotações */
+.fita { background: #07102a; color: rgba(255, 255, 255, .8); border-top: 1px solid rgba(217, 169, 78, .3); overflow: hidden; white-space: nowrap; font: 500 13px var(--mono); }
+.fita div { display: inline-block; padding: 11px 0; animation: corre 60s linear infinite; }
+.fita span { margin: 0 22px; } .fita b { color: var(--gold3); font-weight: 600; }
+@keyframes corre { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* seções */
+section.bloco { padding: 84px 0 0; }
+.titulo-sec { max-width: 760px; margin-bottom: 34px; }
+.titulo-sec small { font: 600 12px var(--text); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.titulo-sec h2 { font-size: clamp(28px, 3.4vw, 40px); font-weight: 800; margin: 10px 0 12px; }
+.titulo-sec p { color: var(--ink2); font-size: 17px; }
+/* abas dos jogos */
+.abas { display: inline-flex; background: var(--soft); border-radius: 999px; padding: 5px; gap: 4px; margin-bottom: 26px; flex-wrap: wrap; }
+.abas button { border: 0; background: transparent; padding: 11px 24px; border-radius: 999px; font: 600 15px var(--text); color: var(--ink2); cursor: pointer; }
+.abas button[aria-selected="true"] { background: var(--navy); color: #fff; box-shadow: 0 6px 18px rgba(14, 27, 60, .25); }
+.jogo { display: grid; grid-template-columns: 1fr 1.1fr; gap: 0; background: var(--surface); border-radius: 22px; overflow: hidden; box-shadow: var(--sombra); border: 1px solid var(--line); }
+.jogo[hidden] { display: none; }
+.jogo .foto { position: relative; min-height: 420px; background-size: cover; background-position: center; }
+.jogo .foto::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14, 27, 60, .05) 30%, rgba(14, 27, 60, .85)); }
+.jogo .foto .rot { position: absolute; left: 26px; bottom: 24px; right: 26px; z-index: 1; color: #fff; }
+.jogo .foto .rot b { font: 800 30px var(--display); display: block; }
+.jogo .foto .rot span { color: var(--gold3); font-weight: 600; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+.jogo .txt { padding: 36px 38px; display: flex; flex-direction: column; gap: 18px; }
+.jogo .txt h3 { font-size: 24px; font-weight: 700; }
+.jogo ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.jogo li { position: relative; padding-left: 28px; color: #2b3650; }
+.jogo li::before { content: ""; position: absolute; left: 0; top: 7px; width: 16px; height: 10px; border-left: 2.5px solid var(--gold); border-bottom: 2.5px solid var(--gold); transform: rotate(-45deg); }
+.etiquetas { display: flex; flex-wrap: wrap; gap: 8px; }
+.etiquetas span { font-size: 13px; font-weight: 600; color: var(--navy2); background: var(--soft); border-radius: 999px; padding: 5px 12px; }
+/* conta */
+.conta-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.cx-conta { background: var(--surface); border-radius: 22px; box-shadow: var(--sombra); border: 1px solid var(--line); padding: 30px; }
+.cx-conta .abas { margin-bottom: 20px; }
+.form { display: grid; gap: 14px; }
+.form .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.lado { background: linear-gradient(160deg, var(--navy), var(--navy2)); color: #fff; border-radius: 22px; padding: 34px; position: relative; overflow: hidden; }
+.lado::after { content: ""; position: absolute; width: 380px; height: 380px; border-radius: 50%; border: 1.5px solid rgba(217, 169, 78, .45); right: -150px; bottom: -170px; }
+.lado h3 { font-size: 24px; margin-bottom: 14px; } .lado p { color: rgba(255, 255, 255, .8); }
+.lado ul { margin: 18px 0 0; padding-left: 20px; color: rgba(255, 255, 255, .85); display: grid; gap: 8px; }
+.ola { display: flex; flex-direction: column; gap: 16px; }
+.ola .linha-ola { display: flex; flex-wrap: wrap; gap: 10px; }
+/* ranking */
+.rank { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.rank .cartao h3 { font-size: 17px; margin-bottom: 10px; }
+.pos { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); font: 700 12px var(--display); }
+.pos.p1 { background: linear-gradient(135deg, var(--gold3), var(--gold)); color: #1b1203; }
+/* sobre */
+.sobre { display: grid; grid-template-columns: .9fr 1.1fr; gap: 40px; align-items: center; }
+.sobre .img { border-radius: 22px; overflow: hidden; box-shadow: var(--sombra); aspect-ratio: 4/3; background: url("img/usina-hidro.jpg") center/cover; }
+.sobre img.logo { height: 54px; width: auto; margin-bottom: 18px; }
+.sobre p + p { margin-top: 14px; } .sobre p { color: #2b3650; }
+/* sugestão flutuante */
+.flutua { position: fixed; right: 20px; bottom: 20px; z-index: 40; box-shadow: 0 12px 30px rgba(14, 27, 60, .3); }
+dialog { border: 0; border-radius: 18px; padding: 26px; width: min(520px, calc(100vw - 32px)); box-shadow: var(--sombra); }
+dialog::backdrop { background: rgba(7, 16, 42, .55); }
+@media (max-width: 900px) {
+  .hero .limite, .jogo, .conta-grade, .sobre { grid-template-columns: 1fr; }
+  .hero .limite { padding-top: 44px; padding-bottom: 60px; gap: 34px; }
+  .jogo .foto { min-height: 240px; }
+  .numeros { grid-template-columns: repeat(3, 1fr); gap: 10px 16px; }
+  .form .duas { grid-template-columns: 1fr; }
+  .nav nav a.lk { display: none; }
+  .abas button { padding: 10px 14px; font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .fita div, .tela .linha, .tela .area, .selo i { animation: none; stroke-dashoffset: 0; opacity: 1; } }
+</style>
+</head>
+<body>
+<header class="nav"><div class="limite">
+  <a href="#topo" aria-label="FKM Energy Strategy, início"><img class="logo" src="img/fkm-logo.png" alt="FKM Energy Strategy"></a>
+  <nav><a class="lk" href="#jogos">Jogos</a><a class="lk" href="#ranking">Ranking</a><a class="lk" href="#fkm">Sobre a FKM</a><span id="navConta"></span></nav>
+</div></header>
+
+<main id="topo">
+<section class="hero">
+  <div class="arco a1"></div><div class="arco a2"></div>
+  <div class="limite">
+    <div>
+      <span class="selo"><i></i>Dados reais da CCEE · 2021 a 2026</span>
+      <h1>FKM <span>Trading Game</span></h1>
+      <p class="sub">Opere uma comercializadora ou uma geradora no mercado livre de energia, com as regras e os prazos da CCEE e o PLD hora a hora que realmente aconteceu.</p>
+      <div class="acoes"><a class="bt ouro" href="#jogos">Escolher um jogo</a><a class="bt claro" href="#conta" id="ctaConta">Entrar ou criar conta</a></div>
+      <div class="numeros"><div><b>2</b><span>jogos: comercializador e gerador</span></div><div><b>22</b><span>missões curtas, uma por conceito</span></div><div><b>50 mil+</b><span>horas de PLD real</span></div></div>
+    </div>
+    <div class="tela" aria-label="Gráfico do PLD médio mensal do SE/CO de 2021 a 2026">
+      <div class="topo"><b>PLD MÉDIO MENSAL · SE/CO</b><span class="var" id="pldVar"></span></div>
+      <div class="preco" id="pldPreco">R$ —</div>
+      <svg id="grafico" viewBox="0 0 520 240" role="img" aria-hidden="true"></svg>
+      <div class="rodape-g"><span>jan/2021</span><span>R$/MWh · fonte: CCEE (dados abertos)</span><span>set/2026</span></div>
+    </div>
+  </div>
+  <div class="fita" aria-hidden="true"><div id="fita"></div></div>
+</section>
+
+<section class="bloco" id="jogos"><div class="limite">
+  <div class="titulo-sec"><small>Escolha o seu jogo</small><h2>Dois lados do mesmo mercado</h2><p>Cada jogo dura um ano de operação, com missões curtas para aprender um conceito de cada vez. O mesmo código de cenário repete o mesmo ano, para a turma comparar decisões.</p></div>
+  <div class="abas" role="tablist">
+    <button role="tab" aria-selected="true" aria-controls="jogoC" id="abaC">Jogo da Comercializadora</button>
+    <button role="tab" aria-selected="false" aria-controls="jogoG" id="abaG">Jogo do Gerador</button>
+  </div>
+  <article class="jogo" id="jogoC" role="tabpanel" aria-labelledby="abaC">
+    <div class="foto" style="background-image:url('img/hero.jpg')"><div class="rot"><span>Trading de energia</span><b>Comercializadora</b></div></div>
+    <div class="txt">
+      <h3>Compre barato, venda bem e feche a posição no prazo</h3>
+      <p class="muted">Você comanda a mesa de uma comercializadora por doze meses: responde a pedidos de consumidores, aceita ofertas de geradores, negocia no balcão e acerta a posição no curto prazo. Depois, registra os contratos na CCEE, aporta a garantia e vê a liquidação hora a hora ao PLD.</p>
+      <ul><li>Preço a termo, curto prazo, modulação e diferença entre submercados</li><li>Registro e validação de contratos até MS+6du e MS+7du</li><li>Garantia financeira, inadimplência e corte de vendas</li><li>Lastro de 12 meses, penalidade e energia incentivada</li></ul>
+      <div class="etiquetas"><span>8 missões</span><span>12 meses</span><span>Regras da CCEE</span><span>Perguntas com os seus números</span></div>
+      <div><button class="bt navy" data-jogar="comercializador.html">Jogar como comercializadora</button></div>
+    </div>
+  </article>
+  <article class="jogo" id="jogoG" role="tabpanel" aria-labelledby="abaG" hidden>
+    <div class="foto" style="background-image:url('img/usina-eolica.jpg')"><div class="rot"><span>Geração e risco hidrológico</span><b>Geradora</b></div></div>
+    <div class="txt">
+      <h3>Garantia física, MRE, GSF e swaps de fonte</h3>
+      <p class="muted">Você administra um portfólio de usinas (hidrelétrica no MRE, eólica, solar, PCH e biomassa) pelas regras de 2027. Em dezembro, sazonaliza a garantia física para lastro; durante o ano, vende a energia, enfrenta o GSF, recebe ou paga a TEO e usa swaps para trocar perfis de geração.</p>
+      <ul><li>Garantia física e sazonalização para lastro (PdC 3.3)</li><li>MRE de 2027: perfil médio de 5 anos, GSF, energia secundária e TEO</li><li>Perfil horário de cada fonte e custo de modulação</li><li>Swaps de fonte precificados pelo histórico de captura</li></ul>
+      <div class="etiquetas"><span>14 missões</span><span>Portfólio sorteado ou escolhido</span><span>Regime do MRE de 2027</span></div>
+      <div><button class="bt navy" data-jogar="gerador.html">Jogar como geradora</button></div>
+    </div>
+  </article>
+</div></section>
+
+<section class="bloco" id="conta"><div class="limite">
+  <div class="conta-grade">
+    <div class="cx-conta" id="cxConta"></div>
+    <div class="lado"><h3>Por que criar uma conta?</h3><p>A conta guarda as suas partidas na nuvem e coloca você no ranking de cada cenário.</p>
+      <ul><li>Continue a partida em qualquer computador</li><li>Compare o seu resultado com o da turma, pelo apelido</li><li>Envie sugestões a qualquer momento do jogo</li><li>O seu nome completo e o e-mail não aparecem para os outros jogadores</li></ul></div>
+  </div>
+</div></section>
+
+<section class="bloco" id="ranking"><div class="limite">
+  <div class="titulo-sec"><small>Ranking por cenário</small><h2>Quem operou melhor o mesmo ano</h2><p>Só partidas completas (sem missões). Os jogadores aparecem pelo apelido.</p></div>
+  <div class="rank" id="rank"><div class="cartao"><p class="muted">Entre na sua conta para ver o ranking.</p></div></div>
+</div></section>
+
+<section class="bloco" id="fkm"><div class="limite">
+  <div class="sobre">
+    <div class="img" role="img" aria-label="Usina hidrelétrica"></div>
+    <div><img class="logo" src="img/fkm-logo.png" alt="FKM Energy Strategy">
+      <p>A <b>FKM Energy Strategy</b> é uma empresa de consultoria, pesquisa e desenvolvimento e treinamento dedicada ao setor de energia.</p>
+      <p>O FKM Trading Game nasceu da experiência em comercialização, regulação e gestão de riscos no mercado livre brasileiro: um ambiente seguro para errar, testar estratégias e entender por que cada regra da CCEE existe.</p>
+      <p style="margin-top:22px"><a class="bt contorno" href="https://franklinkellymiguel-oss.github.io/subsidios-cde/" target="_blank" rel="noopener">Conheça a FKM e os estudos do setor</a></p>
+    </div>
+  </div>
+</div></section>
+</main>
+
+<footer class="rodape"><div class="limite">
+  <span>© 2026 FKM Energy Strategy. Todos os direitos reservados.</span>
+  <span><a href="termos.html">Termos de Uso</a> · Dados de mercado: CCEE (dados abertos) · <span id="versao"></span></span>
+</div></footer>
+<button class="bt ouro flutua" id="btSugestao" hidden>Enviar sugestão</button>
+<dialog id="dlg"></dialog>
+
+<script src="config.js"></script>
+<script>
+(async function () {
+  "use strict";
+  const CFG = window.FKM_CONFIG || {}, $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const rs = (v) => "R$ " + Math.round(v).toLocaleString("pt-BR");
+  $("versao").textContent = "versão " + (CFG.versao || "dev");
+
+  // ---------- gráfico: PLD médio mensal do SE/CO, jan/2021 a set/2026 (dados abertos da CCEE; recalculado do PLD horário) ----------
+  const PLD = [243,166,109,133,219,337,584,584,577,249,88,67,63,56,56,56,56,56,66,77,56,56,56,56,69,69,69,69,69,69,69,69,80,75,84,74,61,61,61,61,61,66,87,119,308,481,104,65,59,94,327,202,213,235,210,287,260,250,278,266,247,382,302,211,220,188,135,128,126];
+  const MES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"], rot = (k) => MES[k % 12] + "/" + String(21 + Math.floor(k / 12));
+  (function grafico() {
+    const W = 520, H = 240, mx = 620, x = (k) => 10 + k * (W - 20) / (PLD.length - 1), y = (v) => H - 22 - v * (H - 40) / mx;
+    const pts = PLD.map((v, k) => x(k).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+    let L = 0; for (let k = 1; k < PLD.length; k++) L += Math.hypot(x(k) - x(k - 1), y(PLD[k]) - y(PLD[k - 1]));
+    $("grafico").innerHTML = '<defs><linearGradient id="gradLinha" x1="0" x2="1"><stop offset="0" stop-color="#f1d18f"/><stop offset="1" stop-color="#d9a94e"/></linearGradient>' +
+      '<linearGradient id="gradArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#d9a94e" stop-opacity=".35"/><stop offset="1" stop-color="#d9a94e" stop-opacity="0"/></linearGradient></defs>' +
+      '<g class="grade">' + [0, 200, 400, 600].map((v) => '<line x1="10" x2="510" y1="' + y(v) + '" y2="' + y(v) + '"/><text class="eixo" x="512" y="' + (y(v) + 3) + '">' + v + "</text>").join("") + "</g>" +
+      '<polygon class="area" points="' + x(0) + "," + y(0) + " " + pts + " " + x(PLD.length - 1) + "," + y(0) + '"/>' +
+      '<polyline class="linha" style="--L:' + Math.ceil(L) + '" points="' + pts + '"/>' +
+      '<circle r="5" fill="#f1d18f" cx="' + x(PLD.length - 1) + '" cy="' + y(PLD[PLD.length - 1]) + '"><animate attributeName="r" values="4;7;4" dur="2s" repeatCount="indefinite"/></circle>';
+    // preço que "corre" até o último mês, como num terminal
+    let k = 0; const t = setInterval(() => { k = Math.min(PLD.length - 1, k + 1); $("pldPreco").textContent = rs(PLD[k]) + "/MWh";
+      const d = PLD[k] - PLD[k - 1] || 0, el = $("pldVar"); el.textContent = rot(k) + " " + (d >= 0 ? "▲ " : "▼ ") + Math.abs(d); el.className = "var " + (d >= 0 ? "sobe" : "desce");
+      if (k === PLD.length - 1) clearInterval(t); }, 52);
+    const it = PLD.map((v, j) => "<span>PLD SE/CO " + rot(j) + " <b>" + rs(v) + "</b></span>").join("");
+    $("fita").innerHTML = it + it;
+  })();
+
+  // ---------- abas dos jogos ----------
+  const abas = [["abaC", "jogoC"], ["abaG", "jogoG"]];
+  abas.forEach(([a, j]) => $(a).addEventListener("click", () => abas.forEach(([b, k]) => { $(b).setAttribute("aria-selected", String(b === a)); $(k).hidden = k !== j; })));
+  if (/gerador/.test(location.hash)) $("abaG").click();
+
+  // ---------- conta (Supabase). Sem configuração: modo local, sem conta ----------
+  let N = null;
+  if (CFG.url && CFG.chave) {
+    try { await carregar("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"); await carregar("ui/nuvem.js"); N = window.FKMNuvem.criar(); await N.iniciar(); }
+    catch (e) { N = null; mostrarConta('<div class="msg ruim">Não foi possível falar com o servidor de contas agora. Tente de novo em instantes.</div>'); }
+  }
+  function carregar(src) { return new Promise((ok, falha) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = falha; document.head.appendChild(s); }); }
+  const params = new URLSearchParams(location.search), volta = params.get("volta");
+  const logado = () => !!(N && N.usuario);
+  function mostrarConta(h) { $("cxConta").innerHTML = h; }
+  function desenharConta(modo, recado) {
+    const r = recado ? '<div class="msg ' + (recado.ok ? "ok" : "ruim") + '" role="status">' + esc(recado.msg) + "</div>" : "";
+    $("btSugestao").hidden = !logado();
+    $("navConta").innerHTML = logado() ? '<a class="bt navy peq" href="#conta">' + esc(N.perfil ? N.perfil.apelido : "Minha conta") + "</a>" : '<a class="bt navy peq" href="#conta">Entrar</a>';
+    $("ctaConta").textContent = logado() ? "Minha conta" : "Entrar ou criar conta";
+    if (!N && CFG.preparo) { mostrarConta('<h3 style="font-size:22px;margin-bottom:10px">Abertura em breve</h3><p class="muted">O FKM Trading Game está em fase final de preparação. Em breve você poderá criar a sua conta e jogar.</p>'); return; }
+    if (!N) { mostrarConta('<h3 style="font-size:22px;margin-bottom:10px">Modo local</h3><p class="muted">Esta cópia não está ligada ao servidor de contas: as partidas ficam só neste navegador e não há ranking. Escolha um jogo acima para jogar.</p>'); return; }
+    if (logado()) {
+      const p = N.perfil || {};
+      mostrarConta('<div class="ola"><h3 style="font-size:24px">Olá, ' + esc(p.apelido || "") + "</h3>" + r + '<p class="muted">' + esc(p.nome || "") + " · " + esc(N.usuario.email) + '</p><p>Suas partidas ficam na nuvem: continue de onde parou em qualquer computador.</p>' +
+        '<div class="linha-ola"><a class="bt navy" href="comercializador.html">Jogo da Comercializadora</a><a class="bt navy" href="gerador.html">Jogo do Gerador</a></div>' +
+        '<div class="linha-ola">' + (p.admin ? '<a class="bt contorno peq" href="admin.html">Painel do administrador</a>' : "") + '<button class="bt contorno peq" data-c="sair">Sair da conta</button></div></div>');
+      return;
+    }
+    if (modo === "nova-senha") { mostrarConta('<h3 style="font-size:22px;margin-bottom:14px">Criar nova senha</h3>' + r + '<form class="form" data-f="nova-senha"><label class="campo">Nova senha (mínimo 8 caracteres)<input type="password" name="senha" autocomplete="new-password" required minlength="8"></label><button class="bt ouro">Salvar a nova senha</button></form>'); return; }
+    const aba = (m, t) => '<button type="button" data-c="' + m + '" aria-selected="' + (modo === m) + '">' + t + "</button>";
+    let h = '<div class="abas">' + aba("entrar", "Entrar") + aba("criar", "Criar conta") + "</div>" + r;
+    if (modo === "criar") h += '<form class="form" data-f="criar"><label class="campo">Nome completo<input name="nome" autocomplete="name" required></label>' +
+      '<div class="duas"><label class="campo">Apelido no ranking<input name="apelido" maxlength="20" required></label><label class="campo">E-mail<input type="email" name="email" autocomplete="email" required></label></div>' +
+      '<div class="duas"><label class="campo">Senha (mínimo 8 caracteres)<input type="password" name="senha" autocomplete="new-password" required minlength="8"></label><label class="campo">Repita a senha<input type="password" name="senha2" autocomplete="new-password" required></label></div>' +
+      '<label class="check"><input type="checkbox" name="termos"> <span>Li e aceito os <a href="termos.html" target="_blank">Termos de Uso</a>, inclusive a proibição de copiar ou redistribuir o jogo.</span></label>' +
+      '<button class="bt ouro">Criar conta</button><p class="muted" style="font-size:13px">Enviaremos um e-mail para confirmar o endereço. O apelido aparece no ranking; o nome e o e-mail, não.</p></form>';
+    else if (modo === "esqueci") h += '<form class="form" data-f="esqueci"><label class="campo">E-mail da conta<input type="email" name="email" autocomplete="email" required></label><button class="bt ouro">Enviar link para nova senha</button><button type="button" class="bt contorno peq" data-c="entrar">Voltar</button></form>';
+    else h += '<form class="form" data-f="entrar"><label class="campo">E-mail<input type="email" name="email" autocomplete="email" required></label><label class="campo">Senha<input type="password" name="senha" autocomplete="current-password" required></label>' +
+      '<button class="bt ouro">Entrar</button><button type="button" class="bt contorno peq" data-c="esqueci">Esqueci a senha</button></form>';
+    mostrarConta(h);
+  }
+  $("cxConta").addEventListener("click", async (ev) => {
+    const b = ev.target.closest("[data-c]"); if (!b) return;
+    if (b.dataset.c === "sair") { await N.sair(); desenharConta("entrar", { ok: true, msg: "Você saiu da conta." }); carregarRanking(); return; }
+    desenharConta(b.dataset.c);
+  });
+  $("cxConta").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); const f = ev.target, d = Object.fromEntries(new FormData(f)), bt = f.querySelector("button"); bt.disabled = true;
+    let r;
+    if (f.dataset.f === "criar") { d.termos = !!d.termos; r = await N.cadastrar(d); desenharConta(r.ok ? "entrar" : "criar", r); }
+    else if (f.dataset.f === "entrar") { r = await N.entrar(d.email, d.senha); if (r.ok && volta && /^(comercializador|gerador|admin)\.html$/.test(volta)) { location.href = volta; return; } desenharConta("entrar", r); if (r.ok) carregarRanking(); }
+    else if (f.dataset.f === "esqueci") { r = await N.recuperar(d.email); desenharConta("esqueci", r); }
+    else if (f.dataset.f === "nova-senha") { r = await N.novaSenha(d.senha); history.replaceState(null, "", "index.html"); desenharConta("entrar", r); }
+    bt.disabled = false;
+  });
+  // jogar: com servidor, só logado
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-jogar]"); if (!b) return;
+    if (!N && CFG.preparo) { desenharConta("entrar"); $("conta").scrollIntoView(); return; }
+    if (N && !logado()) { desenharConta("entrar", { ok: false, msg: "Entre na sua conta (ou crie uma) para jogar." }); $("conta").scrollIntoView(); return; }
+    location.href = b.dataset.jogar;
+  });
+  // sugestão (só com conta)
+  $("btSugestao").addEventListener("click", () => {
+    const dl = $("dlg");
+    dl.innerHTML = '<form class="form" method="dialog"><h3 style="font-size:20px">Enviar sugestão</h3><p class="muted">Conte o que pode melhorar no FKM Trading Game.</p><label class="campo">Sua sugestão<textarea name="t" rows="6" maxlength="4000"></textarea></label><div id="dlgMsg"></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="bt ouro" value="ok">Enviar</button><button class="bt contorno" value="" formnovalidate>Cancelar</button></div></form>';
+    dl.showModal();
+    dl.querySelector("form").onsubmit = async (ev) => { if (ev.submitter && !ev.submitter.value) return; ev.preventDefault(); const r = await N.sugerir(ev.target.t.value, { jogo: "ENTRADA", pagina: "index.html" });
+      $("dlgMsg").innerHTML = '<div class="msg ' + (r.ok ? "ok" : "ruim") + '">' + esc(r.msg) + "</div>"; if (r.ok) setTimeout(() => dl.close(), 1400); };
+  });
+  // ranking: os cenários com mais jogadores, os 5 melhores de cada
+  async function carregarRanking() {
+    if (!logado()) { $("rank").innerHTML = '<div class="cartao"><p class="muted">' + (N ? "Entre na sua conta para ver o ranking." : "O ranking existe só na versão com contas.") + "</p></div>"; return; }
+    try {
+      const lin = await N.rankingCenarios(), g = {};
+      for (const x of lin) (g[x.papel + "|" + x.semente] = g[x.papel + "|" + x.semente] || []).push(x);
+      const top = Object.entries(g).sort((a, b) => b[1].length - a[1].length).slice(0, 4);
+      if (!top.length) { $("rank").innerHTML = '<div class="cartao"><p class="muted">Ainda não há partidas completas. Seja o primeiro!</p></div>'; return; }
+      const det = await Promise.all(top.map(([k]) => { const [papel, sem] = k.split("|"); return N.ranking(sem, papel).then((l) => [papel, sem, l]); }));
+      $("rank").innerHTML = det.map(([papel, sem, l]) => '<div class="cartao"><h3>' + (papel === "GERADOR" ? "Gerador" : "Comercializadora") + " · cenário " + esc(sem) + '</h3><table><tbody>' +
+        l.slice(0, 5).map((x, k) => '<tr><td><span class="pos' + (k === 0 ? " p1" : "") + '">' + (k + 1) + "</span></td><td>" + esc(x.apelido) + '</td><td class="d num">' + rs(x.resultado) + "</td></tr>").join("") + "</tbody></table></div>").join("");
+    } catch (e) { $("rank").innerHTML = '<div class="cartao"><p class="muted">Ranking indisponível agora.</p></div>'; }
+  }
+  // volta da recuperação de senha (o Supabase abre a sessão pelo link) ou do e-mail de confirmação
+  const modoInicial = params.get("nova-senha") && logado() ? "nova-senha" : "entrar";
+  if (N && N.api.sb) N.api.sb.auth.onAuthStateChange((evt) => { if (evt === "PASSWORD_RECOVERY") desenharConta("nova-senha"); });
+  if (volta && N && !logado()) desenharConta("entrar", { ok: false, msg: "Entre na sua conta para abrir o jogo." }); else desenharConta(modoInicial);
+  carregarRanking();
+  window.__entrada = { get N() { return N; }, desenharConta };
+})();
+</script>
+</body>
+</html>

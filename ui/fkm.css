@@ -1,0 +1,55 @@
+/* FKM Trading Game — identidade da FKM Energy Strategy (azul-marinho e dourado do site da FKM), modernizada.
+   Usado pela página central (index.html), pelo painel do administrador (admin.html) e pelos Termos de Uso. */
+:root {
+  --navy: #0e1b3c; --navy2: #16295a; --navy3: #213a78; --gold: #b8842a; --gold2: #d9a94e; --gold3: #f1d18f;
+  --bg: #f6f7fa; --surface: #ffffff; --ink: #0e1b3c; --ink2: #566074; --line: #e3e6ec; --soft: #eef1f6;
+  --ok: #1a7a44; --ruim: #b3261e; --okw: #dff1e6; --ruimw: #f9dedc;
+  --display: "Montserrat", "Segoe UI", Arial, sans-serif; --text: "IBM Plex Sans", "Segoe UI", Roboto, Arial, sans-serif; --mono: "IBM Plex Mono", Consolas, monospace;
+  --raio: 14px; --sombra: 0 18px 50px rgba(14, 27, 60, .14);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--text); -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; display: block; }
+a { color: var(--navy3); }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; letter-spacing: -.01em; }
+p { margin: 0; }
+.limite { max-width: 1180px; margin: 0 auto; padding: 0 max(20px, env(safe-area-inset-left)); }
+.ouro { color: var(--gold2); }
+/* navegação */
+.nav { position: sticky; top: 0; z-index: 30; background: rgba(255, 255, 255, .86); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(14, 27, 60, .08); }
+.nav .limite { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; }
+.nav img.logo { height: 38px; width: auto; }
+.nav nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.nav nav a.lk { text-decoration: none; color: var(--ink); font-weight: 500; padding: 8px 12px; border-radius: 8px; font-size: 15px; }
+.nav nav a.lk:hover { background: var(--soft); }
+/* botões */
+.bt { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 12px 22px; font: 600 15px var(--text); cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s, background .15s; }
+.bt:hover { transform: translateY(-1px); }
+.bt.ouro { background: linear-gradient(135deg, var(--gold2), var(--gold)); color: #1b1203; box-shadow: 0 8px 24px rgba(184, 132, 42, .35); }
+.bt.navy { background: var(--navy); color: #fff; }
+.bt.claro { background: rgba(255, 255, 255, .1); color: #fff; border: 1px solid rgba(255, 255, 255, .35); }
+.bt.contorno { background: transparent; color: var(--navy); border: 1.5px solid var(--navy); }
+.bt.peq { padding: 7px 14px; font-size: 14px; }
+.bt[hidden] { display: none; }
+.bt:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+:focus-visible { outline: 3px solid var(--gold2); outline-offset: 2px; }
+/* formulários */
+.campo { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; color: var(--ink2); }
+.campo input, .campo textarea, .campo select { font: 15px var(--text); color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 13px; width: 100%; }
+.campo input:focus, .campo textarea:focus { border-color: var(--gold2); outline: none; box-shadow: 0 0 0 3px rgba(217, 169, 78, .2); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--ink2); }
+.check input { margin-top: 4px; width: 17px; height: 17px; accent-color: var(--gold); }
+.msg { padding: 11px 14px; border-radius: 10px; font-size: 14px; background: var(--soft); }
+.msg.ok { background: var(--okw); color: var(--ok); } .msg.ruim { background: var(--ruimw); color: var(--ruim); }
+.muted { color: var(--ink2); }
+/* tabelas (admin) */
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink2); font-weight: 600; white-space: nowrap; }
+td.d, th.d { text-align: right; } .num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rol { overflow-x: auto; }
+.cartao { background: var(--surface); border: 1px solid var(--line); border-radius: var(--raio); padding: 22px; box-shadow: 0 2px 10px rgba(14, 27, 60, .04); }
+.rodape { background: var(--navy); color: rgba(255, 255, 255, .78); padding: 36px 0; font-size: 14px; margin-top: 60px; }
+.rodape a { color: var(--gold3); }
+.rodape .limite { display: flex; flex-wrap: wrap; gap: 12px 30px; justify-content: space-between; align-items: center; }

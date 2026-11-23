@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do administrador · FKM Trading Game</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="img/favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="ui/fkm.css">
+<style>
+main { padding: 34px 0 0; }
+h1 { font-size: 30px; margin-bottom: 6px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 24px 0; }
+.kpis .cartao b { display: block; font: 700 28px var(--display); }
+.kpis .cartao span { font-size: 13px; color: var(--ink2); }
+.abas { display: inline-flex; background: var(--soft); border-radius: 999px; padding: 5px; gap: 4px; margin-bottom: 18px; flex-wrap: wrap; }
+.abas button { border: 0; background: transparent; padding: 9px 20px; border-radius: 999px; font: 600 14px var(--text); color: var(--ink2); cursor: pointer; }
+.abas button[aria-selected="true"] { background: var(--navy); color: #fff; }
+.filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 14px; }
+.filtros .campo { min-width: 180px; }
+.sug-txt { white-space: pre-wrap; max-width: 520px; }
+.ctx { font: 12px var(--mono); color: var(--ink2); }
+.st { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+.st.nova { background: #fdecc8; color: #7a4e00; } .st.lida { background: var(--soft); color: var(--ink2); } .st.feita { background: var(--okw); color: var(--ok); }
+tr.abre { cursor: pointer; } tr.abre:hover { background: var(--soft); }
+</style>
+</head>
+<body>
+<header class="nav"><div class="limite">
+  <a href="index.html"><img class="logo" src="img/fkm-logo.png" alt="FKM Energy Strategy"></a>
+  <nav><a class="lk" href="index.html">Início</a><a class="lk" href="comercializador.html">Comercializadora</a><a class="lk" href="gerador.html">Gerador</a></nav>
+</div></header>
+<main class="limite" id="app"><p class="muted">Verificando a sua conta…</p></main>
+<footer class="rodape"><div class="limite"><span>© 2026 FKM Energy Strategy. Todos os direitos reservados.</span><span>Painel restrito ao administrador</span></div></footer>
+
+<script src="config.js"></script>
+<script>
+(async function () {
+  "use strict";
+  const CFG = window.FKM_CONFIG || {}, app = document.getElementById("app");
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const data = (s) => s ? new Date(s).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  const rs = (v) => v == null ? "—" : "R$ " + Math.round(v).toLocaleString("pt-BR");
+  const papelTxt = (p) => p === "GERADOR" ? "Gerador" : "Comercializadora";
+  function carregar(src) { return new Promise((ok, falha) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = falha; document.head.appendChild(s); }); }
+
+  let N;
+  try {
+    if (!(CFG.url && CFG.chave)) { app.innerHTML = '<div class="msg">Esta cópia está em modo local, sem servidor de contas: não há painel do administrador.</div>'; return; }
+    if (!window.FKMNuvem) { await carregar("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"); await carregar("ui/nuvem.js"); }
+    N = window.__nuvemTeste || window.FKMNuvem.criar();
+    if (!(await N.exigirLogin())) return;
+  } catch (e) { app.innerHTML = '<div class="msg ruim">Não foi possível falar com o servidor de contas.</div>'; return; }
+  if (!N.perfil || !N.perfil.admin) { app.innerHTML = '<div class="msg ruim">Acesso restrito ao administrador. <a href="index.html">Voltar ao início</a></div>'; return; }
+
+  let perfis = [], partidas = [], sugestoes = [], aba = "usuarios", filtro = { jogo: "", status: "", busca: "" };
+  async function ler() { [perfis, partidas, sugestoes] = await Promise.all([N.api.adminPerfis(), N.api.adminPartidas(), N.api.adminSugestoes()]); }
+  try { await ler(); } catch (e) { app.innerHTML = '<div class="msg ruim">Erro ao ler os dados: ' + esc(e.message) + "</div>"; return; }
+  const porId = () => Object.fromEntries(perfis.map((p) => [p.id, p]));
+
+  function desenhar() {
+    const P = porId(), ativos7 = perfis.filter((p) => p.ultimo_acesso && Date.now() - new Date(p.ultimo_acesso) < 7 * 864e5).length;
+    let h = '<h1>Painel do administrador</h1><p class="muted">Dados lidos agora do Supabase. Nome e e-mail dos jogadores só aparecem aqui.</p>' +
+      '<div class="kpis"><div class="cartao"><b>' + perfis.length + '</b><span>usuários cadastrados</span></div><div class="cartao"><b>' + ativos7 + '</b><span>acessaram nos últimos 7 dias</span></div>' +
+      '<div class="cartao"><b>' + partidas.length + '</b><span>partidas salvas</span></div><div class="cartao"><b>' + partidas.filter((p) => p.concluida).length + '</b><span>partidas concluídas</span></div>' +
+      '<div class="cartao"><b>' + sugestoes.filter((s) => s.status === "nova").length + '</b><span>sugestões novas (de ' + sugestoes.length + ")</span></div></div>";
+    const ab = (k, t) => '<button data-aba="' + k + '" aria-selected="' + (aba === k) + '">' + t + "</button>";
+    h += '<div class="abas">' + ab("usuarios", "Usuários") + ab("partidas", "Progresso") + ab("sugestoes", "Sugestões") + ab("ranking", "Ranking") + "</div>";
+    if (aba === "usuarios") {
+      const cont = {}; partidas.forEach((p) => { const c = (cont[p.usuario] = cont[p.usuario] || { n: 0, f: 0 }); c.n++; if (p.concluida) c.f++; });
+      const b = filtro.busca.toLowerCase(), lista = perfis.filter((p) => !b || [p.nome, p.apelido, p.email].join(" ").toLowerCase().includes(b));
+      h += '<div class="filtros"><label class="campo">Buscar<input data-f="busca" value="' + esc(filtro.busca) + '" placeholder="nome, apelido ou e-mail"></label><button class="bt contorno peq" data-csv="usuarios">Exportar CSV</button></div>' +
+        '<div class="cartao rol"><table><thead><tr><th>Nome</th><th>Apelido</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th class="d">Partidas</th><th class="d">Concluídas</th><th>Admin</th></tr></thead><tbody>' +
+        lista.map((p) => { const c = cont[p.id] || { n: 0, f: 0 }; return "<tr><td>" + esc(p.nome) + "</td><td>" + esc(p.apelido) + "</td><td>" + esc(p.email) + '</td><td class="num">' + data(p.criado_em) + '</td><td class="num">' + data(p.ultimo_acesso) + '</td><td class="d num">' + c.n + '</td><td class="d num">' + c.f + "</td><td>" + (p.admin ? "sim" : "") + "</td></tr>"; }).join("") + "</tbody></table></div>";
+    } else if (aba === "partidas") {
+      const lista = partidas.filter((p) => !filtro.jogo || p.papel === filtro.jogo);
+      h += '<div class="filtros">' + selJogo() + '<button class="bt contorno peq" data-csv="partidas">Exportar CSV</button></div><div class="cartao rol"><table><thead><tr><th>Jogador</th><th>Jogo</th><th>Partida</th><th>Cenário</th><th>Tipo</th><th class="d">Mês</th><th>Situação</th><th class="d">Resultado</th><th>Atualizada</th></tr></thead><tbody>' +
+        lista.map((p) => "<tr><td>" + esc((P[p.usuario] || {}).apelido || "?") + "</td><td>" + papelTxt(p.papel) + "</td><td>" + esc(p.nome) + '</td><td class="num">' + esc(p.semente) + "</td><td>" + (p.missao ? "Missão " + p.missao : "Jogo completo") +
+          '</td><td class="d num">' + (p.mes != null ? p.mes + (p.meses ? "/" + p.meses : "") : "—") + "</td><td>" + (p.concluida ? "concluída" : "em andamento") + '</td><td class="d num">' + rs(p.resultado) + '</td><td class="num">' + data(p.atualizado) + "</td></tr>").join("") + "</tbody></table></div>";
+    } else if (aba === "sugestoes") {
+      const lista = sugestoes.filter((s) => (!filtro.jogo || s.jogo === filtro.jogo) && (!filtro.status || s.status === filtro.status));
+      h += '<div class="filtros">' + selJogo(true) + '<label class="campo">Status<select data-f="status"><option value="">todos</option>' + ["nova", "lida", "feita"].map((s) => '<option' + (filtro.status === s ? " selected" : "") + ">" + s + "</option>").join("") + "</select></label>" +
+        '<button class="bt contorno peq" data-csv="sugestoes">Exportar CSV</button></div><div class="cartao rol"><table><thead><tr><th>Data</th><th>Jogador</th><th>Jogo</th><th>Sugestão</th><th>Contexto</th><th>Status</th></tr></thead><tbody>' +
+        lista.map((s) => '<tr><td class="num">' + data(s.criado_em) + "</td><td>" + esc((P[s.usuario] || {}).apelido || "?") + "<br><span class=\"ctx\">" + esc((P[s.usuario] || {}).email || "") + "</span></td><td>" + esc(s.jogo) + '</td><td class="sug-txt">' + esc(s.texto) + '</td><td class="ctx">' + esc(ctxTxt(s.contexto)) +
+          '</td><td><span class="st ' + esc(s.status) + '">' + esc(s.status) + '</span><br><select data-status="' + s.id + '" aria-label="Mudar status">' + ["nova", "lida", "feita"].map((x) => "<option" + (x === s.status ? " selected" : "") + ">" + x + "</option>").join("") + "</select></td></tr>").join("") +
+        (lista.length ? "" : '<tr><td colspan="6" class="muted">Nenhuma sugestão com esse filtro.</td></tr>') + "</tbody></table></div>";
+    } else {
+      // ranking: calculado das partidas (o admin vê todas), melhor partida completa por jogador
+      const g = {};
+      partidas.filter((p) => p.concluida && !p.missao && p.resultado != null).forEach((p) => { const k = p.papel + "|" + p.semente, m = (g[k] = g[k] || {}); if (!m[p.usuario] || p.resultado > m[p.usuario].resultado) m[p.usuario] = p; });
+      const ks = Object.keys(g).sort((a, b) => Object.keys(g[b]).length - Object.keys(g[a]).length);
+      h += ks.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">' + ks.map((k) => { const [papel, sem] = k.split("|"), l = Object.values(g[k]).sort((a, b) => b.resultado - a.resultado);
+        return '<div class="cartao"><h3 style="font-size:16px;margin-bottom:8px">' + papelTxt(papel) + " · cenário " + esc(sem) + " (" + l.length + ' jogadores)</h3><table><tbody>' + l.map((p, i) => "<tr><td>" + (i + 1) + "</td><td>" + esc((P[p.usuario] || {}).apelido) + '</td><td class="d num">' + rs(p.resultado) + "</td></tr>").join("") + "</tbody></table></div>"; }).join("") + "</div>"
+        : '<div class="cartao muted">Ainda não há partidas completas concluídas.</div>';
+    }
+    app.innerHTML = h;
+  }
+  function selJogo(entrada) {
+    const ops = [["", "todos"], ["COMERCIALIZADORA", "Comercializadora"], ["GERADOR", "Gerador"]].concat(entrada ? [["ENTRADA", "Página de entrada"]] : []);
+    return '<label class="campo">Jogo<select data-f="jogo">' + ops.map(([v, t]) => '<option value="' + v + '"' + (filtro.jogo === v ? " selected" : "") + ">" + t + "</option>").join("") + "</select></label>";
+  }
+  function ctxTxt(c) { if (!c || typeof c !== "object") return ""; return Object.entries(c).filter(([k]) => k !== "jogo").map(([k, v]) => k + ": " + (typeof v === "object" ? JSON.stringify(v) : v)).join(" · "); }
+  function csv(nome, cab, linhas) {
+    const q = (v) => { const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const txt = "﻿" + [cab].concat(linhas).map((l) => l.map(q).join(";")).join("\r\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/csv;charset=utf-8" })); a.download = nome + "_" + new Date().toISOString().slice(0, 10) + ".csv"; a.click();
+  }
+  app.addEventListener("click", (ev) => {
+    const t = ev.target.closest("[data-aba],[data-csv]"); if (!t) return;
+    if (t.dataset.aba) { aba = t.dataset.aba; filtro.jogo = ""; desenhar(); return; }
+    const P = porId();
+    if (t.dataset.csv === "usuarios") csv("usuarios", ["nome", "apelido", "email", "cadastro", "ultimo_acesso", "admin"], perfis.map((p) => [p.nome, p.apelido, p.email, p.criado_em, p.ultimo_acesso, p.admin]));
+    if (t.dataset.csv === "partidas") csv("partidas", ["apelido", "email", "jogo", "partida", "cenario", "missao", "mes", "meses", "concluida", "resultado", "atualizado"], partidas.map((p) => [(P[p.usuario] || {}).apelido, (P[p.usuario] || {}).email, p.papel, p.nome, p.semente, p.missao, p.mes, p.meses, p.concluida, p.resultado, p.atualizado]));
+    if (t.dataset.csv === "sugestoes") csv("sugestoes", ["data", "apelido", "email", "jogo", "status", "texto", "contexto"], sugestoes.map((s) => [s.criado_em, (P[s.usuario] || {}).apelido, (P[s.usuario] || {}).email, s.jogo, s.status, s.texto, s.contexto]));
+  });
+  app.addEventListener("input", (ev) => { const f = ev.target.dataset.f; if (f === "busca") { filtro.busca = ev.target.value; const pos = ev.target.selectionStart; desenhar(); const el = app.querySelector('[data-f="busca"]'); el.focus(); el.setSelectionRange(pos, pos); } });
+  app.addEventListener("change", async (ev) => {
+    const el = ev.target;
+    if (el.dataset.f === "jogo" || el.dataset.f === "status") { filtro[el.dataset.f] = el.value; desenhar(); return; }
+    if (el.dataset.status) { el.disabled = true; try { await N.api.adminStatusSugestao(Number(el.dataset.status), el.value); const s = sugestoes.find((x) => String(x.id) === el.dataset.status); if (s) s.status = el.value; desenhar(); } catch (e) { alert("Não foi possível mudar o status: " + e.message); el.disabled = false; } }
+  });
+  desenhar();
+})();
+</script>
+</body>
+</html>
